@@ -462,6 +462,7 @@ body <- dashboardBody(useShinyjs(), tabItems(
   ## 3. Constraints ----------------------------------------------------------
   
   tabItem(tabName="constraints",
+          fluidRow(
           column(6,
                  fluidRow(
                    # box(width=5, title="Global & Solver Settings",
@@ -497,7 +498,8 @@ body <- dashboardBody(useShinyjs(), tabItems(
                  fluidRow(box(width=12, title="Solver Settings"
                               , numericInput("n_frontier","Frontier Points",value=60,min=20,max=200,step=10)
                  ))
-          )),
+          ))
+          ),
   
   ## 4. Frontier -------------------------------------------------------------
   
