@@ -404,7 +404,7 @@ sidebar <- dashboardSidebar(width = 255, tags$style(HTML(APP_CSS)),
                                         menuItem("Constraints",          tabName="constraints",  icon=icon("sliders-h")),
                                         menuItem("Efficient Frontier",   tabName="frontier",     icon=icon("chart-line")),
                                         menuItem("Portfolio Analysis",   tabName="analysis",     icon=icon("pie-chart")),
-                                        menuItem("Portfolio Comparison",   tabName="comparison", icon=icon("bar-chart")),
+                                        menuItem("Portfolio Comparison",   tabName="port_comparison", icon=icon("bar-chart")),
                                         menuItem("Black-Litterman",      tabName="bl",           icon=icon("eye")),
                                         menuItem("Monte Carlo",          tabName="montecarlo",   icon=icon("random")),
                                         menuItem("Comparison & Export",  tabName="comparison",   icon=icon("balance-scale"))))
@@ -545,7 +545,7 @@ body <- dashboardBody(useShinyjs(), tabItems(
   
   ## 5b. Portfolio Comparison ------------------------------------------------
   
-  tabItem(tabName="comparison",
+  tabItem(tabName="port_comparison",
           fluidRow(box(width=12, title="Compare Portfolios Side by Side",
                        p(class="hint-text","Select up to 3 portfolios to compare directly. Target Return/Volatility slots use the values set in the main Portfolio Selection panel above."),
                        fluidRow(
