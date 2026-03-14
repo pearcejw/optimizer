@@ -409,7 +409,26 @@ sidebar <- dashboardSidebar(width = 255, tags$style(HTML(APP_CSS)),
                                         menuItem("Monte Carlo",          tabName="montecarlo",   icon=icon("random")),
                                         menuItem("Comparison & Export",  tabName="comparison",   icon=icon("balance-scale"))))
 
-body <- dashboardBody(useShinyjs(), tabItems(
+body <- dashboardBody(useShinyjs(),
+                      
+                      # Disclaimer Popup
+                      
+                      tags$div(id="disclaimer_modal",
+                               style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+         background:rgba(0,0,0,0.75); z-index:9999; justify-content:center; align-items:center;",
+                               tags$div(
+                                 style="background:#1a1f2e; border:1px solid #2d3555; border-radius:4px;
+           padding:30px 40px; max-width:560px; margin:auto; margin-top:15vh;",
+                                 tags$h4("Important Notice", style="color:#d0d6e8; font-family:'Source Sans 3'; margin-bottom:16px;"),
+                                 tags$p("This tool is for educational purposes only and should not be relied upon for making investment decisions.", style="color:#7a87a8; font-size:13px; line-height:1.6;"),
+                                 tags$p("The default return, risk, and correlation assumptions are entirely made up and have no basis in reality.", style="color:#7a87a8; font-size:13px; line-height:1.6;"),
+                                 tags$p("This tool was generated with the help of AI tools and has not been thouroughly tested.", style="color:#7a87a8; font-size:13px; line-height:1.6;"),
+                                 actionButton("dismiss_disclaimer", "I Understand", class="btn-primary",
+                                              style="margin-top:16px; width:100%;")
+                               )
+                      )
+                      
+                      , tabItems(
   
   ## 1. Assets ---------------------------------------------------------------
   
@@ -664,7 +683,16 @@ body <- dashboardBody(useShinyjs(), tabItems(
             valueBoxOutput("mc_vb_p90",width=3),   valueBoxOutput("mc_vb_cvar",width=3)),
           fluidRow(
             box(width=6, title="Terminal Wealth Distribution", plotlyOutput("mc_hist_plot",height="340px")),
-            box(width=6, title="Annual Return Boxplots",       plotlyOutput("mc_box_plot",height="340px")))),
+            box(width=6, title="Annual Return Boxplots",       plotlyOutput("mc_box_plot",height="340px"))),
+          fluidRow(
+            box(width=12, title="Annualised Return Distribution (CAGR across all paths)",
+                p(class="hint-text","Distribution of compound annualised growth rates (CAGRs) across all simulated paths over the full horizon. Vertical lines show the median and 5th/95th percentile outcomes."),
+                plotlyOutput("mc_cagr_plot", height="320px"))),
+          fluidRow(
+            box(width=12, title="Tail Risk Summary",
+                p(class="hint-text","Best and worst annualised return and maximum drawdown at the 90%, 95%, and 99% confidence levels across all simulated paths."),
+                DTOutput("mc_risk_table")))
+          ),
   
   ## 8. Comparison & Export --------------------------------------------------
   
@@ -708,6 +736,20 @@ parse_pasted_table <- function(raw_text) {
 
 # ──────────────────────────────────────────────────────────────
 server <- function(input, output, session) {
+  
+  # Show disclaimer on launch
+  shinyjs::runjs("
+  var el = document.getElementById('disclaimer_modal');
+  el.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+")
+
+  observeEvent(input$dismiss_disclaimer, {
+    shinyjs::runjs("
+    document.getElementById('disclaimer_modal').style.display = 'none';
+    document.body.style.overflow = '';
+  ")
+  })
   
   rv <- reactiveValues(
     assets=default_assets, cor_matrix=default_cor,
@@ -1510,6 +1552,76 @@ server <- function(input, output, session) {
       plot_ly(prl,x=~Year,y=~Return,type="box",fillcolor="rgba(39,128,227,0.2)",
               line=list(color="#2780e3"),marker=list(color="#2780e3",opacity=0.2,size=2)) %>%
         plot_dark("Year","Annual Return (%)")
+    })
+    # ── CAGR distribution ───────────────────────────────────────
+    cagr <- apply(pr, 1, function(r) (prod(1 + r))^(1/hor) - 1) * 100
+    cagr_p05 <- quantile(cagr, 0.05)
+    cagr_p25 <- quantile(cagr, 0.25)
+    cagr_p50 <- median(cagr)
+    cagr_p75 <- quantile(cagr, 0.75)
+    cagr_p95 <- quantile(cagr, 0.95)
+    
+    output$mc_cagr_plot <- renderPlotly({
+      dens  <- density(cagr, n=512)
+      y_max <- max(dens$y)
+      plot_ly() %>%
+        add_trace(x=dens$x[dens$x<=cagr_p05], y=dens$y[dens$x<=cagr_p05],
+                  type="scatter", mode="lines", fill="tozeroy",
+                  fillcolor="rgba(255,0,57,0.18)", line=list(color="transparent"),
+                  name="Bottom 5%", showlegend=TRUE) %>%
+        add_trace(x=dens$x[dens$x>=cagr_p95], y=dens$y[dens$x>=cagr_p95],
+                  type="scatter", mode="lines", fill="tozeroy",
+                  fillcolor="rgba(63,182,24,0.18)", line=list(color="transparent"),
+                  name="Top 5%", showlegend=TRUE) %>%
+        add_trace(x=dens$x[dens$x>=cagr_p25 & dens$x<=cagr_p75],
+                  y=dens$y[dens$x>=cagr_p25 & dens$x<=cagr_p75],
+                  type="scatter", mode="lines", fill="tozeroy",
+                  fillcolor="rgba(39,128,227,0.18)", line=list(color="transparent"),
+                  name="IQR (25-75%)", showlegend=TRUE) %>%
+        add_trace(x=dens$x, y=dens$y, type="scatter", mode="lines",
+                  line=list(color="#2780e3", width=2), name="Density", showlegend=FALSE) %>%
+        add_segments(x=cagr_p05, xend=cagr_p05, y=0, yend=y_max*0.85,
+                     line=list(color="#ff0039",width=1.5,dash="dot"), name="5th Pctl") %>%
+        add_segments(x=cagr_p50, xend=cagr_p50, y=0, yend=y_max*0.95,
+                     line=list(color="#3fb618",width=2,dash="dash"), name="Median") %>%
+        add_segments(x=cagr_p95, xend=cagr_p95, y=0, yend=y_max*0.85,
+                     line=list(color="#3fb618",width=1.5,dash="dot"), name="95th Pctl") %>%
+        layout(annotations=list(
+          list(x=cagr_p05, y=y_max*0.88, text=paste0(round(cagr_p05,1),"%"),
+               showarrow=FALSE, font=list(color="#ff0039",family="IBM Plex Mono",size=11)),
+          list(x=cagr_p50, y=y_max*0.98, text=paste0(round(cagr_p50,1),"%"),
+               showarrow=FALSE, font=list(color="#3fb618",family="IBM Plex Mono",size=11)),
+          list(x=cagr_p95, y=y_max*0.88, text=paste0(round(cagr_p95,1),"%"),
+               showarrow=FALSE, font=list(color="#3fb618",family="IBM Plex Mono",size=11))
+        )) %>%
+        plot_dark("Annualised Return (% p.a.)","Density", legend=TRUE)
+    })
+    
+    # ── Max drawdown and tail risk table ────────────────────────
+    mdd <- apply(wl, 1, function(path) {
+      peak <- cummax(path)
+      max(ifelse(peak > 0, (peak - path) / peak, 0))
+    }) * 100
+    
+    ci_levels <- c(0.90, 0.95, 0.99)
+    risk_rows <- do.call(rbind, lapply(ci_levels, function(ci) {
+      tail_p <- (1 - ci) / 2
+      data.frame(
+        CI           = paste0(ci*100, "%"),
+        Best_Return  = paste0(round(quantile(cagr, 1 - tail_p), 2), "%"),
+        Worst_Return = paste0(round(quantile(cagr, tail_p), 2), "%"),
+        Worst_MDD    = paste0(round(quantile(mdd, ci), 2), "%"),
+        stringsAsFactors=FALSE)
+    }))
+    colnames(risk_rows) <- c("Confidence Level","Best Annualised Return",
+                             "Worst Annualised Return","Max Drawdown (Worst)")
+    
+    output$mc_risk_table <- renderDT({
+      datatable(risk_rows, rownames=FALSE, class="compact stripe",
+                options=list(dom="t", paging=FALSE, scrollX=TRUE)) %>%
+        formatStyle("Best Annualised Return",  color="#3fb618") %>%
+        formatStyle("Worst Annualised Return", color="#ff0039") %>%
+        formatStyle("Max Drawdown (Worst)",    color="#c9a84c")
     })
   })
   
