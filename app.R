@@ -107,15 +107,17 @@ max_div_portfolio <- function(Sigma, vols, w_min_vec = NULL, w_max_vec = NULL,
                      w_max_vec = w_max_vec, group_constraints = group_constraints)
 }
 
-risk_parity_portfolio <- function(Sigma, max_iter = 2000, tol = 1e-10) {
+risk_parity_portfolio <- function(Sigma, max_iter = 5000, tol = 1e-12) {
   n <- nrow(Sigma); w <- rep(1/n, n)
   for (i in seq_len(max_iter)) {
     sp <- sqrt(as.numeric(t(w) %*% Sigma %*% w)) # Calculate portfolio vol
-    RC <- w * (as.numeric(Sigma %*% w) / sp) # Calculate contribution to vol
-    # wn <- w / (n * RC / sp); wn <- wn / sum(wn) # Original risk-parity formula
-    wn <- w / RC; wn <- wn / sum(wn) # Update to fix risk-parity formula
+    RC <- w * (as.numeric(Sigma %*% w) / sp) # Calculate risk contribution to vol
+    # Scale each weight by the ratio of target RC to actual RC
+    target <- sp / n
+    wn <- w * (target / RC)
+    wn <- wn / sum(wn)
     if (max(abs(wn - w)) < tol) { w <- wn; break }
-    w <- wn
+    w <- 0.5 * w + 0.5 * wn  # damped update for stability
   }
   w
 }
@@ -1157,6 +1159,8 @@ server <- function(input, output, session) {
            "target_ret"  = numericInput("target_return_val","Target Return (% p.a.)",value=5.0,step=0.5),
            "target_vol"  = numericInput("target_vol_val","Target Volatility (%)",value=10.0,step=0.5),
            "max_utility" = numericInput("lambda_val","Risk Aversion (lambda)",value=3.0,min=0.5,max=20,step=0.5),
+           "risk_parity" = p(class="hint-text",
+                             "Targets equal risk contribution from each asset. Note: weight constraints are not applied to this objective — the result is always the unconstrained risk parity portfolio."),
            "min_te" = {
              n <- nrow(rv$assets); eq <- round(100/n,1)
              w_cur <- rv$assets$Current_pct
