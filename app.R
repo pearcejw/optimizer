@@ -312,7 +312,7 @@ body, .content-wrapper, .main-footer {
 }
 
 /* ── AdminLTE chrome ────────────────────────────────────── */
-.skin-blue .main-header .logo,
+.skin-blue .main-header .logo       { background: var(--surface) !important; border-bottom: 1px solid var(--border); text-overflow: ellipsis; }       
 .skin-blue .main-header .navbar     { background: var(--surface) !important; border-bottom: 1px solid var(--border); }
 .skin-blue .main-sidebar            { background: var(--surface) !important; border-right:  1px solid var(--border); }
 .skin-blue .sidebar-menu > li > a   { color: var(--muted) !important; font-size: 13px; }
@@ -321,6 +321,15 @@ body, .content-wrapper, .main-footer {
   color: var(--text) !important;
   background: var(--surface2) !important;
   border-left: 3px solid var(--primary);
+}
+
+/* ── Prevent header row wrapping ────────────────────────── */
+.skin-blue .main-header {
+  background: var(--surface) !important; border-bottom: 1px solid var(--border);
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-wrap: nowrap !important;
 }
 
 /* ── Sidebar toggle border ──────────────────────────────── */
