@@ -223,7 +223,8 @@ port_stats <- function(w, mu, Sigma, rf = 0) {
 risk_contributions <- function(w, Sigma) {
   sp <- sqrt(as.numeric(t(w) %*% Sigma %*% w))
   RC <- w * (as.numeric(Sigma %*% w) / sp)
-  list(RC_pct = RC / sum(abs(RC)) * 100, vol = sp * 100)
+  # list(RC_pct = RC / sum(abs(RC)) * 100, vol = sp * 100)
+  list(RC_pct = RC / sum(RC) * 100, vol = sp * 100) # Recommended change
 }
 
 ## Monte Carlo -------------------------------------------------------------
