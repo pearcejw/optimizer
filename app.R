@@ -321,6 +321,14 @@ body, .content-wrapper, .main-footer {
   border-left: 3px solid var(--primary);
 }
 
+/* ── Sidebar toggle border ──────────────────────────────── */
+.skin-blue .main-header .sidebar-toggle {
+  border-bottom: 1px solid var(--border) !important;
+  height: 50px;
+  display: flex;
+  align-items: center;
+}
+
 /* ── Boxes ──────────────────────────────────────────────── */
 .box        { background: var(--surface) !important; border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: none !important; }
 .box-header { background: var(--surface2) !important; border-bottom: 1px solid var(--border) !important; border-radius: var(--radius) var(--radius) 0 0 !important; padding: 10px 15px !important; }
@@ -389,15 +397,44 @@ hr            { border-color: var(--border) !important; }
 ::-webkit-scrollbar        { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track  { background: var(--bg); }
 ::-webkit-scrollbar-thumb  { background: var(--border); border-radius: 3px; }
-"
 
+/* ── Utility spacing ────────────────────────────────────── */
+.ml-8   { margin-left:  8px !important; }
+.mb-8   { margin-bottom: 8px !important; }
+
+/* ── Run Optimizer button ───────────────────────────────── */
+.btn-run-optimizer { font-size:14px !important; padding:10px 30px !important; margin-bottom:15px !important; }
+
+/* ── Frontier status bar ────────────────────────────────── */
+.frontier-status { padding:8px 0; margin-bottom:10px; }
+
+/* ── Stats mini-tables (GMV/MSR/Selected/Comparison) ────── */
+.stat-table       { width:100%; }
+.stat-label-td    { color:var(--muted); font-family:var(--sans); font-size:12px; padding:3px 0; }
+.stat-value-td    { color:var(--text);  font-family:var(--mono); font-size:13px; text-align:right; }
+
+/* ── Per-asset constraint table ─────────────────────────── */
+.constraint-th         { color:var(--text); font-family:var(--sans); font-size:11px; text-transform:uppercase; letter-spacing:.7px; padding:6px 8px; background:var(--surface2); }
+.constraint-th-wide    { width:45%; }
+.constraint-tr-odd     { background:var(--surface); }
+.constraint-tr-even    { background:var(--surface2); }
+.constraint-td-asset   { color:var(--text); font-family:var(--mono); font-size:12px; padding:4px 8px; }
+.constraint-td-input   { padding:3px 5px; }
+
+/* ── Group constraint label ─────────────────────────────── */
+.group-label  { color:var(--text); font-size:13px; font-weight:600; }
+
+/* ── Black-Litterman labels ─────────────────────────────── */
+.bl-asset-label { color:var(--muted); font-size:12px; line-height:34px; }
+.bl-view-title  { color:var(--text);  font-size:13px; font-weight:600; }
+"
 
 # UI ----------------------------------------------------------------------
 
 
 header <- dashboardHeader(
   title = tags$span(style="font-family:'Source Sans 3','Segoe UI',sans-serif;font-size:16px;font-weight:600;letter-spacing:.2px;","(α)typicalquant Portfolio Optimizer"),
-  titleWidth = 325)
+  titleWidth = 355)
 
 sidebar <- dashboardSidebar(width = 255, tags$style(HTML(APP_CSS)),
                             sidebarMenu(id="sidebar",
@@ -406,7 +443,7 @@ sidebar <- dashboardSidebar(width = 255, tags$style(HTML(APP_CSS)),
                                         menuItem("Constraints",          tabName="constraints",  icon=icon("sliders-h")),
                                         menuItem("Efficient Frontier",   tabName="frontier",     icon=icon("chart-line")),
                                         menuItem("Portfolio Analysis",   tabName="analysis",     icon=icon("pie-chart")),
-                                        menuItem("Portfolio Comparison",   tabName="port_comparison", icon=icon("bar-chart")),
+                                        menuItem("Portfolio Comparison", tabName="port_comparison", icon=icon("bar-chart")),
                                         menuItem("Black-Litterman",      tabName="bl",           icon=icon("eye")),
                                         menuItem("Monte Carlo",          tabName="montecarlo",   icon=icon("random")),
                                         menuItem("Comparison & Export",  tabName="comparison",   icon=icon("balance-scale"))))
@@ -431,287 +468,276 @@ body <- dashboardBody(useShinyjs(),
                       )
                       
                       , tabItems(
-  
-  ## 1. Assets ---------------------------------------------------------------
-  
-  tabItem(tabName="assets",
-          fluidRow(box(width=12, title="Risk-Free Rate Assumption"
-                       # , p(class="hint-text","Input Risk-Free Rate Assumption") 
-                       , numericInput("rf_rate","Risk-Free Rate (% p.a.)",value=1.5,min=0,max=15,step=0.1)
-          )),
-          fluidRow(box(width=12, title="Asset Class Assumptions",
-                       p(class="hint-text","Edit returns (%) and volatilities (%) directly in the table. The Class column drives asset-class constraints."),
-                       fluidRow(
-                         column(3, textInput("new_asset_name","Name",placeholder="e.g., Private Equity")),
-                         column(2, numericInput("new_asset_ret","Return (%)",value=5.0,step=0.5)),
-                         column(2, numericInput("new_asset_vol","Vol (%)",value=12.0,step=0.5)),
-                         column(3, textInput("new_asset_class","Class",placeholder="e.g., Alternatives")),
-                         column(2, br(), actionButton("add_asset","Add Asset",class="btn-primary"))),
-                       fluidRow(column(12,
-                                       actionButton("reset_assets","Reset Defaults",class="btn-default"),
-                                       actionButton("remove_asset","Remove Selected",class="btn-danger",style="margin-left:8px;"))),
-                       br(), DTOutput("assets_table"))),
-          fluidRow(box(width=12, title="Paste Assets from Spreadsheet",
-                       p(class="hint-text", "Paste directly from Excel or Google Sheets. Expected columns (with a header row): ",
-                         tags$b("Asset, Return (%), Vol (%), Class, Current (%)"), ". Tab- and comma-separated formats are both detected automatically."),
-                       tags$textarea(id="paste_assets_raw", class="paste-area", rows="8",
-                                     placeholder="Asset\t\tReturn (%)\tVol (%)\tClass\t\tCurrent\nUS Equity\t7.5\t\t16.0\tEquity\t\t60\nUS Bonds\t3.0\t\t5.0\tFixed Income\t40"),
-                       br(),
-                       fluidRow(
-                         column(6, checkboxInput("paste_assets_replace","Replace all existing assets",value=TRUE))),
-                       fluidRow(
-                         column(6, actionButton("import_assets","Import Assets",class="btn-primary"))),
-                       uiOutput("paste_assets_result")
-          ))),
-  
-  ## 2. Correlations ---------------------------------------------------------
-  
-  tabItem(tabName="correlations",
-          fluidRow(box(width=12, title="Correlation Matrix",
-                       p(class="hint-text","Pairwise correlations (−100 to +100). Kept symmetric automatically. Diagonal locked at 100."),
-                       DTOutput("cor_table"))),
-          fluidRow(box(width=12, title="Paste Correlation Matrix from Spreadsheet",
-                       p(class="hint-text", "Paste a square matrix from Excel. Include a header row and asset names in the first column — ",
-                         "names must match your asset list exactly. Values should be in the −100 to +100 range."),
-                       tags$textarea(id="paste_cor_raw", class="paste-area", rows="10",
-                                     placeholder="Asset\t\tUS Equity\tUS Bonds\nUS Equity\t100\t\t-10\nUS Bonds\t-10\t\t100"),
-                       br(),
-                       actionButton("import_cor","Import Correlations",class="btn-primary"),
-                       uiOutput("paste_cor_result")
-          ))),
-  
-  ## 3. Constraints ----------------------------------------------------------
-  
-  tabItem(tabName="constraints",
-          fluidRow(
-          column(6,
-                 fluidRow(
-                   # box(width=5, title="Global & Solver Settings",
-                   #   sliderInput("w_min_global","Global Min Weight per Asset (%)",min=-30,max=20,value=0,step=1),
-                   #   sliderInput("w_max_global","Global Max Weight per Asset (%)",min=5,max=100,value=100,step=5),
-                   #   p(class="hint-text","Negative minimums allow short positions. Per-asset overrides below take precedence.")
-                   #   # ,
-                   #   # hr()
-                   #   # ,
-                   #   # numericInput("rf_rate","Risk-Free Rate (% p.a.)",value=1.5,min=0,max=15,step=0.1),
-                   #   # numericInput("n_frontier","Frontier Points",value=60,min=20,max=200,step=10)
-                   #   ),
-                   box(width=12, title="Asset Weight Constraints",
-                       sliderInput("w_min_global","Global Min Weight per Asset (%)",min=-30,max=20,value=0,step=1),
-                       sliderInput("w_max_global","Global Max Weight per Asset (%)",min=5,max=100,value=100,step=5),
-                       p(class="hint-text","Negative minimums allow short positions. Per-asset overrides below take precedence."),
-                       hr(),
-                       p(class="hint-text","Override global min/max for individual assets. Leave blank to inherit the global setting."),
-                       uiOutput("per_asset_table_ui")))),
-          column(6,
-                 fluidRow(
-                   box(width=12, title="Asset Class Constraints",
-                       p(class="hint-text","Constrain total allocation to an entire asset class (e.g., all Equity between 30–60%)."),
-                       uiOutput("class_constraint_ui"), br(),
-                       actionButton("add_class_con","Add Class Constraint",class="btn-default"),
-                       actionButton("remove_class_con","Remove Last",class="btn-danger",style="margin-left:8px;"))),
-                 fluidRow(
-                   box(width=12, title="Custom Group Constraints",
-                       p(class="hint-text","Combine any assets into a custom group with combined allocation bounds."),
-                       uiOutput("group_constraint_ui"), br(),
-                       actionButton("add_gc","Add Group Constraint",class="btn-default"),
-                       actionButton("remove_gc","Remove Last",class="btn-danger",style="margin-left:8px;"))),
-                 fluidRow(box(width=12, title="Solver Settings"
-                              , numericInput("n_frontier","Frontier Points",value=60,min=20,max=200,step=10)
-                 ))
-          ))
-          ),
-  
-  ## 4. Frontier -------------------------------------------------------------
-  
-  tabItem(tabName="frontier",
-          fluidRow(column(12,
-                          actionButton("run_optimizer","Run Optimizer",class="btn-primary",
-                                       style="font-size:14px;padding:10px 30px;margin-bottom:15px;"),
-                          uiOutput("frontier_status"))),
-          fluidRow(box(width=12, title="Efficient Frontier", plotlyOutput("frontier_plot",height="500px"))),
-          fluidRow(
-            box(width=4, title="Global Min-Variance", uiOutput("gmv_stats")),
-            box(width=4, title="Max Sharpe Ratio",    uiOutput("msr_stats")),
-            box(width=4, title="Selected Portfolio",  uiOutput("sel_stats")))),
-  
-  ## 5a. Analysis -------------------------------------------------------------
-  
-  tabItem(tabName="analysis",
-          fluidRow(box(width=12, title="Portfolio Selection",
-                       fluidRow(
-                         column(4, selectInput("selected_objective","Objective Function", choices=c(
-                           "Minimum Variance"          = "min_var",
-                           "Maximum Sharpe Ratio"      = "max_sharpe",
-                           "Maximum Diversification"   = "max_div",
-                           "Risk Parity"               = "risk_parity",
-                           "Equal Weight"              = "equal_weight",
-                           "Min CVaR (5%)"             = "min_cvar",
-                           "Maximum Return"            = "max_return",
-                           "Maximum Utility"           = "max_utility",
-                           "Min Tracking Error"        = "min_te",
-                           "Target Return"             = "target_ret",
-                           "Target Volatility"         = "target_vol",
-                           "Manual Weights"            = "manual_weights",
-                           "Current Portfolio"         = "current_port"))),
-                         column(4, uiOutput("target_input_ui")),
-                         column(4, br(), actionButton("analyse_portfolio","Analyse",class="btn-primary"))))),
-          fluidRow(
-            valueBoxOutput("vb_return",width=3), valueBoxOutput("vb_vol",width=3),
-            valueBoxOutput("vb_sharpe",width=3), valueBoxOutput("vb_cvar",width=3)),
-          fluidRow(
-            box(width=6, title="Asset Allocation",  plotlyOutput("weights_bar",height="360px")),
-            box(width=6, title="Risk Contribution", plotlyOutput("rc_bar",height="360px"))),
-          fluidRow(box(width=12, title="Portfolio Weights & Risk", DTOutput("weights_table")))),
-  
-  ## 5b. Portfolio Comparison ------------------------------------------------
-  
-  tabItem(tabName="port_comparison",
-          fluidRow(box(width=12, title="Compare Portfolios Side by Side",
-                       p(class="hint-text","Select up to 3 portfolios to compare directly. Target Return/Volatility slots use the values set in the main Portfolio Selection panel above."),
-                       fluidRow(
-                         column(4,
-                                selectInput("cmp_port1","Portfolio A",choices=c(
-                                  "— None —"                  = "none",
-                                  "Current Portfolio"         = "current_port",
-                                  "Min Variance"              = "min_var",
-                                  "Max Sharpe"                = "max_sharpe",
-                                  "Max Diversification"       = "max_div",
-                                  "Risk Parity"               = "risk_parity",
-                                  "Equal Weight"              = "equal_weight",
-                                  "Min CVaR (5%)"             = "min_cvar",
-                                  "Max Return"                = "max_return",
-                                  "Max Utility"               = "max_utility",
-                                  "Target Return"             = "target_ret_c",
-                                  "Target Volatility"         = "target_vol_c",
-                                  "Manual Weights"            = "manual_weights",
-                                  "Current Analysis"          = "analysis_result"
-                                ),selected="current_port"),
-                                uiOutput("cmp_extra1_ui")),
-                         column(4,
-                                selectInput("cmp_port2","Portfolio B",choices=c(
-                                  "— None —"                  = "none",
-                                  "Current Portfolio"         = "current_port",
-                                  "Min Variance"              = "min_var",
-                                  "Max Sharpe"                = "max_sharpe",
-                                  "Max Diversification"       = "max_div",
-                                  "Risk Parity"               = "risk_parity",
-                                  "Equal Weight"              = "equal_weight",
-                                  "Min CVaR (5%)"             = "min_cvar",
-                                  "Max Return"                = "max_return",
-                                  "Max Utility"               = "max_utility",
-                                  "Target Return"             = "target_ret_c",
-                                  "Target Volatility"         = "target_vol_c",
-                                  "Manual Weights"            = "manual_weights",
-                                  "Current Analysis"          = "analysis_result"
-                                ),selected="max_sharpe"),
-                                uiOutput("cmp_extra2_ui")),
-                         column(4,
-                                selectInput("cmp_port3","Portfolio C",choices=c(
-                                  "— None —"                  = "none",
-                                  "Current Portfolio"         = "current_port",
-                                  "Min Variance"              = "min_var",
-                                  "Max Sharpe"                = "max_sharpe",
-                                  "Max Diversification"       = "max_div",
-                                  "Risk Parity"               = "risk_parity",
-                                  "Equal Weight"              = "equal_weight",
-                                  "Min CVaR (5%)"             = "min_cvar",
-                                  "Max Return"                = "max_return",
-                                  "Max Utility"               = "max_utility",
-                                  "Target Return"             = "target_ret_c",
-                                  "Target Volatility"         = "target_vol_c",
-                                  "Manual Weights"            = "manual_weights",
-                                  "Current Analysis"          = "analysis_result"
-                                ),selected="min_var"),
-                                uiOutput("cmp_extra3_ui"))),
-                       fluidRow(column(12, br(),
-                                       actionButton("compare_portfolios","Compare",class="btn-primary"))),
-                       br(),
-                       uiOutput("compare_stats_ui"),
-                       br(),
-                       plotlyOutput("compare_weights_plot", height="360px"),
-                       br(),
-                       DTOutput("compare_table")
-          ))),
-  
-  ## 6. Black-Litterman ------------------------------------------------------
-  
-  tabItem(tabName="bl",
-          fluidRow(
-            box(width=5, title="Market Prior & Settings",
-                p(class="hint-text","Black-Litterman blends CAPM-implied equilibrium returns with your subjective views using Bayesian updating. The posterior replaces raw expected returns in the optimizer."),
-                p(class="section-label","Market-Cap Weights (%)"),
-                uiOutput("bl_mkt_weights_ui"), hr(),
-                numericInput("bl_delta","Risk Aversion (delta)",value=2.5,min=0.5,max=10,step=0.5),
-                numericInput("bl_tau","Prior Confidence (tau)",value=0.05,min=0.01,max=0.5,step=0.01),
-                p(class="hint-text","tau controls how tightly the posterior is pulled toward the equilibrium prior. Smaller tau = stronger prior. Typical: 0.01–0.10."),
-                hr(), actionButton("bl_run","Compute BL Posterior",class="btn-primary")),
-            box(width=7, title="Investor Views",
-                p(class="hint-text","Each view specifies a portfolio (P-vector: +long, −short, 0=excluded), an expected return Q, and a confidence level (0=ignore view, 1=certain)."),
-                uiOutput("bl_views_ui"), br(),
-                fluidRow(
-                  column(6, actionButton("bl_add_view","Add View",class="btn-default")),
-                  column(6, actionButton("bl_remove_view","Remove Last",class="btn-danger"))))),
-          fluidRow(
-            box(width=6, title="Equilibrium vs BL Returns", plotlyOutput("bl_returns_plot",height="380px")),
-            box(width=6, title="BL Max-Sharpe Portfolio",   plotlyOutput("bl_weights_plot",height="380px"))),
-          fluidRow(box(width=12, title="Return Comparison Table", DTOutput("bl_table")))),
-  
-  ## 7. Monte Carlo ----------------------------------------------------------
-  
-  tabItem(tabName="montecarlo",
-          fluidRow(
-            box(width=4, title="Simulation Settings",
-                p(class="hint-text","Simulates annual returns from a multivariate normal distribution over a multi-year horizon. Run the Optimizer or Analysis first."),
-                selectInput("mc_portfolio","Portfolio to Simulate",choices=c(
-                  "Min Variance"          = "min_var",
-                  "Max Sharpe"            = "max_sharpe",
-                  "Max Diversification"   = "max_div",
-                  "Risk Parity"           = "risk_parity",
-                  "Equal Weight"          = "equal_weight",
-                  "Current Portfolio"     = "current",
-                  "Current Analysis"      = "analysis",
-                  "Black-Litterman (MSR)" = "bl_msr")),
-                numericInput("mc_horizon","Horizon (years)",value=10,min=1,max=50,step=1),
-                numericInput("mc_sims","Number of Simulations",value=1000,min=100,max=10000,step=100),
-                numericInput("mc_initial","Initial Portfolio Value ($)",value=1000000,min=1000,step=50000),
-                numericInput("mc_contrib","Annual Contribution ($, 0=none)",value=0,min=0,step=5000),
-                hr(),
-                numericInput("mc_alpha","CVaR Confidence Level (%)",value=5,min=1,max=25,step=1),
-                hr(), actionButton("run_mc","Run Simulation",class="btn-primary")),
-            box(width=8, title="Wealth Path Simulation", plotlyOutput("mc_paths_plot",height="440px"))),
-          fluidRow(
-            valueBoxOutput("mc_vb_median",width=3), valueBoxOutput("mc_vb_p10",width=3),
-            valueBoxOutput("mc_vb_p90",width=3),   valueBoxOutput("mc_vb_cvar",width=3)),
-          fluidRow(
-            box(width=6, title="Terminal Wealth Distribution", plotlyOutput("mc_hist_plot",height="340px")),
-            box(width=6, title="Annual Return Boxplots",       plotlyOutput("mc_box_plot",height="340px"))),
-          fluidRow(
-            box(width=12, title="Annualised Return Distribution (CAGR across all paths)",
-                p(class="hint-text","Distribution of compound annualised growth rates (CAGRs) across all simulated paths over the full horizon. Vertical lines show the median and 5th/95th percentile outcomes."),
-                plotlyOutput("mc_cagr_plot", height="320px"))),
-          fluidRow(
-            box(width=12, title="Tail Risk Summary",
-                p(class="hint-text","Best and worst annualised return and maximum drawdown at the 90%, 95%, and 99% confidence levels across all simulated paths."),
-                DTOutput("mc_risk_table")))
-          ),
-  
-  ## 8. Comparison & Export --------------------------------------------------
-  
-  tabItem(tabName="comparison",
-          fluidRow(box(width=12, title="Portfolio Comparison & Export",
-                       p(class="hint-text","Compare all systematic portfolios. Run the Optimizer first. BL and Analysis portfolios are included if available."),
-                       fluidRow(
-                         column(4, actionButton("run_comparison","Generate Comparison",class="btn-primary")),
-                         column(8,
-                                downloadButton("export_csv",  "Export CSV",      class="btn-default"),
-                                downloadButton("export_excel","Export Excel",    class="btn-default",style="margin-left:8px;"),
-                                downloadButton("export_bl",   "Export BL CSV",  class="btn-default",style="margin-left:8px;"),
-                                downloadButton("export_mc",   "Export MC Paths",class="btn-default",style="margin-left:8px;"))))),
-          fluidRow(box(width=12, title="Summary Statistics", DTOutput("comparison_stats_table"))),
-          fluidRow(box(width=12, title="Weights Heatmap", plotlyOutput("comparison_heatmap",height="460px"))))
-  
-)) # end tabItems, dashboardBody
+                        
+                        ## 1. Assets ---------------------------------------------------------------
+                        
+                        tabItem(tabName="assets",
+                                fluidRow(box(width=12, title="Risk-Free Rate Assumption"
+                                             # , p(class="hint-text","Input Risk-Free Rate Assumption") 
+                                             , numericInput("rf_rate","Risk-Free Rate (% p.a.)",value=1.5,min=0,max=15,step=0.1)
+                                )),
+                                fluidRow(box(width=12, title="Asset Class Assumptions",
+                                             p(class="hint-text","Edit returns (%) and volatilities (%) directly in the table. The Class column drives asset-class constraints."),
+                                             fluidRow(
+                                               column(3, textInput("new_asset_name","Name",placeholder="e.g., Private Equity")),
+                                               column(2, numericInput("new_asset_ret","Return (%)",value=5.0,step=0.5)),
+                                               column(2, numericInput("new_asset_vol","Vol (%)",value=12.0,step=0.5)),
+                                               column(3, textInput("new_asset_class","Class",placeholder="e.g., Alternatives")),
+                                               column(2, br(), actionButton("add_asset","Add Asset",class="btn-primary"))),
+                                             fluidRow(column(12,
+                                                             actionButton("reset_assets","Reset Defaults",class="btn-default"),
+                                                             actionButton("remove_asset","Remove Selected",class="btn-danger ml-8"))),
+                                             br(), DTOutput("assets_table"))),
+                                fluidRow(box(width=12, title="Paste Assets from Spreadsheet",
+                                             p(class="hint-text", "Paste directly from Excel or Google Sheets. Expected columns (with a header row): ",
+                                               tags$b("Asset, Return (%), Vol (%), Class, Current (%)"), ". Tab- and comma-separated formats are both detected automatically."),
+                                             tags$textarea(id="paste_assets_raw", class="paste-area", rows="8",
+                                                           placeholder="Asset\t\tReturn (%)\tVol (%)\tClass\t\tCurrent\nUS Equity\t7.5\t\t16.0\tEquity\t\t60\nUS Bonds\t3.0\t\t5.0\tFixed Income\t40"),
+                                             br(),
+                                             fluidRow(
+                                               column(6, checkboxInput("paste_assets_replace","Replace all existing assets",value=TRUE))),
+                                             fluidRow(
+                                               column(6, actionButton("import_assets","Import Assets",class="btn-primary"))),
+                                             uiOutput("paste_assets_result")
+                                ))),
+                        
+                        ## 2. Correlations ---------------------------------------------------------
+                        
+                        tabItem(tabName="correlations",
+                                fluidRow(box(width=12, title="Correlation Matrix",
+                                             p(class="hint-text","Pairwise correlations (−100 to +100). Kept symmetric automatically. Diagonal locked at 100."),
+                                             DTOutput("cor_table"))),
+                                fluidRow(box(width=12, title="Paste Correlation Matrix from Spreadsheet",
+                                             p(class="hint-text", "Paste a square matrix from Excel. Include a header row and asset names in the first column — ",
+                                               "names must match your asset list exactly. Values should be in the −100 to +100 range."),
+                                             tags$textarea(id="paste_cor_raw", class="paste-area", rows="10",
+                                                           placeholder="Asset\t\tUS Equity\tUS Bonds\nUS Equity\t100\t\t-10\nUS Bonds\t-10\t\t100"),
+                                             br(),
+                                             actionButton("import_cor","Import Correlations",class="btn-primary"),
+                                             uiOutput("paste_cor_result")
+                                ))),
+                        
+                        ## 3. Constraints ----------------------------------------------------------
+                        
+                        tabItem(tabName="constraints",
+                                fluidRow(
+                                  column(6,
+                                         fluidRow(
+                                           box(width=12, title="Asset Weight Constraints",
+                                               sliderInput("w_min_global","Global Min Weight per Asset (%)",min=-30,max=20,value=0,step=1),
+                                               sliderInput("w_max_global","Global Max Weight per Asset (%)",min=5,max=100,value=100,step=5),
+                                               p(class="hint-text","Negative minimums allow short positions. Per-asset overrides below take precedence."),
+                                               hr(),
+                                               p(class="hint-text","Override global min/max for individual assets. Leave blank to inherit the global setting."),
+                                               uiOutput("per_asset_table_ui")))),
+                                  column(6,
+                                         fluidRow(
+                                           box(width=12, title="Asset Class Constraints",
+                                               p(class="hint-text","Constrain total allocation to an entire asset class (e.g., all Equity between 30–60%)."),
+                                               uiOutput("class_constraint_ui"), br(),
+                                               actionButton("add_class_con","Add Class Constraint",class="btn-default"),
+                                               actionButton("remove_class_con","Remove Last",class="btn-danger ml-8"))),
+                                         fluidRow(
+                                           box(width=12, title="Custom Group Constraints",
+                                               p(class="hint-text","Combine any assets into a custom group with combined allocation bounds."),
+                                               uiOutput("group_constraint_ui"), br(),
+                                               actionButton("add_gc","Add Group Constraint",class="btn-default"),
+                                               actionButton("remove_gc","Remove Last",class="btn-danger ml-8"))),
+                                         fluidRow(box(width=12, title="Solver Settings"
+                                                      , numericInput("n_frontier","Frontier Points",value=60,min=20,max=200,step=10)
+                                         ))
+                                  ))
+                        ),
+                        
+                        ## 4. Frontier -------------------------------------------------------------
+                        
+                        tabItem(tabName="frontier",
+                                fluidRow(column(12,
+                                                actionButton("run_optimizer","Run Optimizer",class="btn-primary btn-run-optimizer"),
+                                                uiOutput("frontier_status"))),
+                                fluidRow(box(width=12, title="Efficient Frontier", plotlyOutput("frontier_plot",height="500px"))),
+                                fluidRow(
+                                  box(width=4, title="Global Min-Variance", uiOutput("gmv_stats")),
+                                  box(width=4, title="Max Sharpe Ratio",    uiOutput("msr_stats")),
+                                  box(width=4, title="Selected Portfolio",  uiOutput("sel_stats")))),
+                        
+                        ## 5a. Analysis -------------------------------------------------------------
+                        
+                        tabItem(tabName="analysis",
+                                fluidRow(box(width=12, title="Portfolio Selection",
+                                             fluidRow(
+                                               column(4, selectInput("selected_objective","Objective Function", choices=c(
+                                                 "Minimum Variance"          = "min_var",
+                                                 "Maximum Sharpe Ratio"      = "max_sharpe",
+                                                 "Maximum Diversification"   = "max_div",
+                                                 "Risk Parity"               = "risk_parity",
+                                                 "Equal Weight"              = "equal_weight",
+                                                 "Min CVaR (5%)"             = "min_cvar",
+                                                 "Maximum Return"            = "max_return",
+                                                 "Maximum Utility"           = "max_utility",
+                                                 "Min Tracking Error"        = "min_te",
+                                                 "Target Return"             = "target_ret",
+                                                 "Target Volatility"         = "target_vol",
+                                                 "Manual Weights"            = "manual_weights",
+                                                 "Current Portfolio"         = "current_port"))),
+                                               column(4, uiOutput("target_input_ui")),
+                                               column(4, br(), actionButton("analyse_portfolio","Analyse",class="btn-primary"))))),
+                                fluidRow(
+                                  valueBoxOutput("vb_return",width=3), valueBoxOutput("vb_vol",width=3),
+                                  valueBoxOutput("vb_sharpe",width=3), valueBoxOutput("vb_cvar",width=3)),
+                                fluidRow(
+                                  box(width=6, title="Asset Allocation",  plotlyOutput("weights_bar",height="360px")),
+                                  box(width=6, title="Risk Contribution", plotlyOutput("rc_bar",height="360px"))),
+                                fluidRow(box(width=12, title="Portfolio Weights & Risk", DTOutput("weights_table")))),
+                        
+                        ## 5b. Portfolio Comparison ------------------------------------------------
+                        
+                        tabItem(tabName="port_comparison",
+                                fluidRow(box(width=12, title="Compare Portfolios Side by Side",
+                                             p(class="hint-text","Select up to 3 portfolios to compare directly. Target Return/Volatility slots use the values set in the main Portfolio Selection panel above."),
+                                             fluidRow(
+                                               column(4,
+                                                      selectInput("cmp_port1","Portfolio A",choices=c(
+                                                        "— None —"                  = "none",
+                                                        "Current Portfolio"         = "current_port",
+                                                        "Min Variance"              = "min_var",
+                                                        "Max Sharpe"                = "max_sharpe",
+                                                        "Max Diversification"       = "max_div",
+                                                        "Risk Parity"               = "risk_parity",
+                                                        "Equal Weight"              = "equal_weight",
+                                                        "Min CVaR (5%)"             = "min_cvar",
+                                                        "Max Return"                = "max_return",
+                                                        "Max Utility"               = "max_utility",
+                                                        "Target Return"             = "target_ret_c",
+                                                        "Target Volatility"         = "target_vol_c",
+                                                        "Manual Weights"            = "manual_weights",
+                                                        "Current Analysis"          = "analysis_result"
+                                                      ),selected="current_port"),
+                                                      uiOutput("cmp_extra1_ui")),
+                                               column(4,
+                                                      selectInput("cmp_port2","Portfolio B",choices=c(
+                                                        "— None —"                  = "none",
+                                                        "Current Portfolio"         = "current_port",
+                                                        "Min Variance"              = "min_var",
+                                                        "Max Sharpe"                = "max_sharpe",
+                                                        "Max Diversification"       = "max_div",
+                                                        "Risk Parity"               = "risk_parity",
+                                                        "Equal Weight"              = "equal_weight",
+                                                        "Min CVaR (5%)"             = "min_cvar",
+                                                        "Max Return"                = "max_return",
+                                                        "Max Utility"               = "max_utility",
+                                                        "Target Return"             = "target_ret_c",
+                                                        "Target Volatility"         = "target_vol_c",
+                                                        "Manual Weights"            = "manual_weights",
+                                                        "Current Analysis"          = "analysis_result"
+                                                      ),selected="max_sharpe"),
+                                                      uiOutput("cmp_extra2_ui")),
+                                               column(4,
+                                                      selectInput("cmp_port3","Portfolio C",choices=c(
+                                                        "— None —"                  = "none",
+                                                        "Current Portfolio"         = "current_port",
+                                                        "Min Variance"              = "min_var",
+                                                        "Max Sharpe"                = "max_sharpe",
+                                                        "Max Diversification"       = "max_div",
+                                                        "Risk Parity"               = "risk_parity",
+                                                        "Equal Weight"              = "equal_weight",
+                                                        "Min CVaR (5%)"             = "min_cvar",
+                                                        "Max Return"                = "max_return",
+                                                        "Max Utility"               = "max_utility",
+                                                        "Target Return"             = "target_ret_c",
+                                                        "Target Volatility"         = "target_vol_c",
+                                                        "Manual Weights"            = "manual_weights",
+                                                        "Current Analysis"          = "analysis_result"
+                                                      ),selected="min_var"),
+                                                      uiOutput("cmp_extra3_ui"))),
+                                             fluidRow(column(12, br(),
+                                                             actionButton("compare_portfolios","Compare",class="btn-primary"))),
+                                             br(),
+                                             uiOutput("compare_stats_ui"),
+                                             br(),
+                                             plotlyOutput("compare_weights_plot", height="360px"),
+                                             br(),
+                                             DTOutput("compare_table")
+                                ))),
+                        
+                        ## 6. Black-Litterman ------------------------------------------------------
+                        
+                        tabItem(tabName="bl",
+                                fluidRow(
+                                  box(width=5, title="Market Prior & Settings",
+                                      p(class="hint-text","Black-Litterman blends CAPM-implied equilibrium returns with your subjective views using Bayesian updating. The posterior replaces raw expected returns in the optimizer."),
+                                      p(class="section-label","Market-Cap Weights (%)"),
+                                      uiOutput("bl_mkt_weights_ui"), hr(),
+                                      numericInput("bl_delta","Risk Aversion (delta)",value=2.5,min=0.5,max=10,step=0.5),
+                                      numericInput("bl_tau","Prior Confidence (tau)",value=0.05,min=0.01,max=0.5,step=0.01),
+                                      p(class="hint-text","tau controls how tightly the posterior is pulled toward the equilibrium prior. Smaller tau = stronger prior. Typical: 0.01–0.10."),
+                                      hr(), actionButton("bl_run","Compute BL Posterior",class="btn-primary")),
+                                  box(width=7, title="Investor Views",
+                                      p(class="hint-text","Each view specifies a portfolio (P-vector: +long, −short, 0=excluded), an expected return Q, and a confidence level (0=ignore view, 1=certain)."),
+                                      uiOutput("bl_views_ui"), br(),
+                                      fluidRow(
+                                        column(6, actionButton("bl_add_view","Add View",class="btn-default")),
+                                        column(6, actionButton("bl_remove_view","Remove Last",class="btn-danger"))))),
+                                fluidRow(
+                                  box(width=6, title="Equilibrium vs BL Returns", plotlyOutput("bl_returns_plot",height="380px")),
+                                  box(width=6, title="BL Max-Sharpe Portfolio",   plotlyOutput("bl_weights_plot",height="380px"))),
+                                fluidRow(box(width=12, title="Return Comparison Table", DTOutput("bl_table")))),
+                        
+                        ## 7. Monte Carlo ----------------------------------------------------------
+                        
+                        tabItem(tabName="montecarlo",
+                                fluidRow(
+                                  box(width=4, title="Simulation Settings",
+                                      p(class="hint-text","Simulates annual returns from a multivariate normal distribution over a multi-year horizon. Run the Optimizer or Analysis first."),
+                                      selectInput("mc_portfolio","Portfolio to Simulate",choices=c(
+                                        "Min Variance"          = "min_var",
+                                        "Max Sharpe"            = "max_sharpe",
+                                        "Max Diversification"   = "max_div",
+                                        "Risk Parity"           = "risk_parity",
+                                        "Equal Weight"          = "equal_weight",
+                                        "Current Portfolio"     = "current",
+                                        "Current Analysis"      = "analysis",
+                                        "Black-Litterman (MSR)" = "bl_msr")),
+                                      numericInput("mc_horizon","Horizon (years)",value=10,min=1,max=50,step=1),
+                                      numericInput("mc_sims","Number of Simulations",value=1000,min=100,max=10000,step=100),
+                                      numericInput("mc_initial","Initial Portfolio Value ($)",value=1000000,min=1000,step=50000),
+                                      numericInput("mc_contrib","Annual Contribution ($, 0=none)",value=0,min=0,step=5000),
+                                      hr(),
+                                      numericInput("mc_alpha","CVaR Confidence Level (%)",value=5,min=1,max=25,step=1),
+                                      hr(), actionButton("run_mc","Run Simulation",class="btn-primary")),
+                                  box(width=8, title="Wealth Path Simulation", plotlyOutput("mc_paths_plot",height="440px"))),
+                                fluidRow(
+                                  valueBoxOutput("mc_vb_median",width=3), valueBoxOutput("mc_vb_p10",width=3),
+                                  valueBoxOutput("mc_vb_p90",width=3),   valueBoxOutput("mc_vb_cvar",width=3)),
+                                fluidRow(
+                                  box(width=6, title="Terminal Wealth Distribution", plotlyOutput("mc_hist_plot",height="340px")),
+                                  box(width=6, title="Annual Return Boxplots",       plotlyOutput("mc_box_plot",height="340px"))),
+                                fluidRow(
+                                  box(width=12, title="Annualised Return Distribution (CAGR across all paths)",
+                                      p(class="hint-text","Distribution of compound annualised growth rates (CAGRs) across all simulated paths over the full horizon. Vertical lines show the median and 5th/95th percentile outcomes."),
+                                      plotlyOutput("mc_cagr_plot", height="320px"))),
+                                fluidRow(
+                                  box(width=12, title="Tail Risk Summary",
+                                      p(class="hint-text","Best and worst annualised return and maximum drawdown at the 90%, 95%, and 99% confidence levels across all simulated paths."),
+                                      DTOutput("mc_risk_table")))
+                        ),
+                        
+                        ## 8. Comparison & Export --------------------------------------------------
+                        
+                        tabItem(tabName="comparison",
+                                fluidRow(box(width=12, title="Portfolio Comparison & Export",
+                                             p(class="hint-text","Compare all systematic portfolios. Run the Optimizer first. BL and Analysis portfolios are included if available."),
+                                             fluidRow(
+                                               column(4, actionButton("run_comparison","Generate Comparison",class="btn-primary")),
+                                               column(8,
+                                                      downloadButton("export_csv",  "Export CSV",      class="btn-default"),
+                                                      downloadButton("export_excel","Export Excel",    class="btn-default ml-8"),
+                                                      downloadButton("export_bl",   "Export BL CSV",  class="btn-default ml-8"),
+                                                      downloadButton("export_mc",   "Export MC Paths",class="btn-default ml-8"))))),
+                                fluidRow(box(width=12, title="Summary Statistics", DTOutput("comparison_stats_table"))),
+                                fluidRow(box(width=12, title="Weights Heatmap", plotlyOutput("comparison_heatmap",height="460px"))))
+                        
+                      )) # end tabItems, dashboardBody
 
 ui <- dashboardPage(header, sidebar, body, skin="blue")
 
@@ -739,7 +765,17 @@ parse_pasted_table <- function(raw_text) {
 # ──────────────────────────────────────────────────────────────
 server <- function(input, output, session) {
   
+  # Controls browser tab document title
   shinyjs::runjs("document.title = '(α)typicalquant Portfolio Optimizer';")
+  
+  # Moves the menu toggle button to the left hand side and incorporates a delay
+  shinyjs::runjs("
+  setTimeout(function() {
+    var toggle = document.querySelector('.sidebar-toggle');
+    var logo   = document.querySelector('.main-header .logo');
+    logo.parentNode.insertBefore(toggle, logo);
+    }, 100);
+                 ")
   
   # Show disclaimer on launch
   shinyjs::runjs("
@@ -747,7 +783,7 @@ server <- function(input, output, session) {
   el.style.display = 'flex';
   document.body.style.overflow = 'hidden';
 ")
-
+  
   observeEvent(input$dismiss_disclaimer, {
     shinyjs::runjs("
     document.getElementById('disclaimer_modal').style.display = 'none';
@@ -993,14 +1029,14 @@ server <- function(input, output, session) {
     n <- nrow(rv$assets)
     tagList(tags$table(style="width:100%;border-collapse:collapse;",
                        tags$thead(tags$tr(
-                         tags$th(style="color:#d0d6e8;font-family:'Source Sans 3',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.7px;padding:6px 8px;background:#222840;width:45%;","Asset"),
-                         tags$th(style="color:#d0d6e8;font-family:'Source Sans 3',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.7px;padding:6px 8px;background:#222840;","Min (%)"),
-                         tags$th(style="color:#d0d6e8;font-family:'Source Sans 3',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.7px;padding:6px 8px;background:#222840;","Max (%)"))),
+                         tags$th(class="constraint-th constraint-th-wide","Asset"),
+                         tags$th(class="constraint-th","Min (%)"),
+                         tags$th(class="constraint-th","Max (%)"))),
                        tags$tbody(lapply(seq_len(n), function(i) {
-                         tags$tr(style=if(i%%2==0)"background:#222840;" else "background:#1a1f2e;",
-                                 tags$td(style="color:#d0d6e8;font-family:'IBM Plex Mono';font-size:12px;padding:4px 8px;",rv$assets$Asset[i]),
-                                 tags$td(style="padding:3px 5px;",numericInput(paste0("pa_min_",i),NULL,value=NA,min=-100,max=100,step=1,width="100%")),
-                                 tags$td(style="padding:3px 5px;",numericInput(paste0("pa_max_",i),NULL,value=NA,min=0,max=100,step=1,width="100%")))
+                         tags$tr(class=if(i%%2==0)"constraint-tr-even" else "constraint-tr-odd",
+                                 tags$td(class="constraint-td-asset",rv$assets$Asset[i]),
+                                 tags$td(class="constraint-td-input",numericInput(paste0("pa_min_",i),NULL,value=NA,min=-100,max=100,step=1,width="100%")),
+                                 tags$td(class="constraint-td-input",numericInput(paste0("pa_max_",i),NULL,value=NA,min=0,max=100,step=1,width="100%")))
                        }))))
   })
   
@@ -1022,7 +1058,7 @@ server <- function(input, output, session) {
     if (rv$gc_count==0) return(p(class="hint-text","No custom group constraints defined."))
     lapply(seq_len(rv$gc_count), function(i) {
       wellPanel(class="well-sm",
-                tags$b(style="color:var(--text);font-size:13px;font-weight:600;",paste("Group",i)),
+                tags$b(class="group-label",paste("Group",i)),
                 checkboxGroupInput(paste0("gc_assets_",i),"Assets:",choices=rv$assets$Asset,inline=TRUE),
                 fluidRow(
                   column(6,numericInput(paste0("gc_min_",i),"Min (%)",value=0,min=0,max=100)),
@@ -1054,9 +1090,9 @@ server <- function(input, output, session) {
   
   output$frontier_status <- renderUI({
     if (is.null(rv$frontier))
-      div(style="padding:8px 0;margin-bottom:10px;",span(class="status-badge status-err","Not computed — click Run Optimizer"))
+      div(class="frontier-status",span(class="status-badge status-err","Not computed — click Run Optimizer"))
     else
-      div(style="padding:8px 0;margin-bottom:10px;",span(class="status-badge status-ok",paste0("✓ ",length(rv$frontier)," feasible portfolios on frontier")))
+      div(class="frontier-status",span(class="status-badge status-ok",paste0("✓ ",length(rv$frontier)," feasible portfolios on frontier")))
   })
   
   output$frontier_plot <- renderPlotly({
@@ -1104,10 +1140,10 @@ server <- function(input, output, session) {
       list("Return",     paste0(round(pstats$Return*100,2),"%"), "#d0d6e8"),
       list("Volatility", paste0(round(pstats$Vol,2),"%"),        "#d0d6e8"),
       list("Sharpe",     round(pstats$Sharpe%||%NA,3),           "#2780e3"))
-    tags$table(style="width:100%;",
+    tags$table(class="stat-table",
                do.call(tagList, lapply(rows, function(r)
                  tags$tr(
-                   tags$td(style="color:#7a87a8;font-family:'Source Sans 3',sans-serif;font-size:12px;padding:3px 0;",r[[1]]),
+                   tags$td(class="stat-label-td",r[[1]]),
                    tags$td(style=paste0("color:",r[[3]],";font-family:'IBM Plex Mono',monospace;font-size:14px;text-align:right;"),r[[2]])))))
   }
   output$gmv_stats <- renderUI({ req(rv$gmv_port); ms<-get_mu_sigma(); stats_html(port_stats(rv$gmv_port$Weights,ms$mu,ms$Sigma,input$rf_rate/100)) })
@@ -1128,7 +1164,7 @@ server <- function(input, output, session) {
              tagList(
                p(class="hint-text","Benchmark weights (%). Click the button to seed from the Current Portfolio."),
                if (has_cur) actionButton("bench_from_current","Use Current Portfolio as Benchmark",
-                                         class="btn-default",style="margin-bottom:8px;"),
+                                         class="btn-default mb-8"),
                lapply(seq_len(n), function(i)
                  numericInput(paste0("bench_w_",i),rv$assets$Asset[i],
                               value=if(has_cur) round(w_cur[i],1) else eq,
@@ -1151,11 +1187,11 @@ server <- function(input, output, session) {
                w_norm <- w_cur / sum(w_cur)
                tagList(
                  p(class="hint-text", "Displaying the Current Portfolio entered in the Assets tab."),
-                 tags$table(style="width:100%;",
+                 tags$table(class="stat-table",
                             lapply(seq_len(nrow(rv$assets)), function(i)
                               tags$tr(
-                                tags$td(style="color:#7a87a8;font-size:12px;padding:2px 0;",rv$assets$Asset[i]),
-                                tags$td(style="color:#d0d6e8;font-family:'IBM Plex Mono';font-size:12px;text-align:right;",
+                                tags$td(class="stat-label-td",rv$assets$Asset[i]),
+                                tags$td(class="stat-value-td",
                                         paste0(round(w_norm[i]*100,1),"%"))
                               )
                             )
@@ -1365,21 +1401,21 @@ server <- function(input, output, session) {
           tags$div(style=paste0("color:",acc,";font-family:'Source Sans 3';font-size:13px;",
                                 "font-weight:600;margin-bottom:10px;border-bottom:1px solid ",
                                 acc,";padding-bottom:6px;"), nm),
-          tags$table(style="width:100%;",
+          tags$table(class="stat-table",
                      tags$tr(
-                       tags$td(style="color:#7a87a8;font-size:12px;padding:3px 0;","Return"),
-                       tags$td(style="color:#d0d6e8;font-family:'IBM Plex Mono';font-size:13px;text-align:right;",
+                       tags$td(class="stat-label-td","Return"),
+                       tags$td(class="stat-value-td",
                                paste0(round(s$Return*100,2),"%"))),
                      tags$tr(
-                       tags$td(style="color:#7a87a8;font-size:12px;padding:3px 0;","Volatility"),
-                       tags$td(style="color:#d0d6e8;font-family:'IBM Plex Mono';font-size:13px;text-align:right;",
+                       tags$td(class="stat-label-td","Volatility"),
+                       tags$td(class="stat-value-td",
                                paste0(round(s$Vol,2),"%"))),
                      tags$tr(
-                       tags$td(style="color:#7a87a8;font-size:12px;padding:3px 0;","Sharpe"),
+                       tags$td(class="stat-label-td","Sharpe"),
                        tags$td(style=paste0("color:",acc,";font-family:'IBM Plex Mono';font-size:13px;text-align:right;"),
                                round(s$Sharpe %||% NA, 3))),
                      tags$tr(
-                       tags$td(style="color:#7a87a8;font-size:12px;padding:3px 0;","CVaR (5%)"),
+                       tags$td(class="stat-label-td","CVaR (5%)"),
                        tags$td(style="color:#ff0039;font-family:'IBM Plex Mono';font-size:13px;text-align:right;",
                                paste0(round(cvar,2),"%")))
           )
@@ -1424,7 +1460,7 @@ server <- function(input, output, session) {
   output$bl_mkt_weights_ui <- renderUI({
     n <- nrow(rv$assets); eq <- round(100/n,1)
     lapply(seq_len(n), function(i) fluidRow(
-      column(7,tags$label(style="color:#7a87a8;font-size:12px;line-height:34px;",rv$assets$Asset[i])),
+      column(7,tags$label(class="bl-asset-label",rv$assets$Asset[i])),
       column(5,numericInput(paste0("bl_mkt_",i),NULL,value=eq,min=0,max=100,step=0.5))))
   })
   
@@ -1433,7 +1469,7 @@ server <- function(input, output, session) {
     n <- nrow(rv$assets)
     lapply(seq_len(rv$bl_view_count), function(i) {
       wellPanel(class="well-sm",
-                tags$b(style="color:#d0d6e8;font-size:13px;font-weight:600;",paste("View",i)),
+                tags$b(class="bl-view-title",paste("View",i)),
                 p(class="hint-text","Asset weights: +long, -short, 0=excluded."),
                 fluidRow(lapply(seq_len(n), function(j)
                   column(max(1,floor(12/n)),numericInput(paste0("bl_v_",i,"_w_",j),rv$assets$Asset[j],value=0,step=0.5)))),
