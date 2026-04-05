@@ -395,8 +395,8 @@ hr            { border-color: var(--border) !important; }
 
 
 header <- dashboardHeader(
-  title = tags$span(style="font-family:'Source Sans 3','Segoe UI',sans-serif;font-size:16px;font-weight:600;letter-spacing:.2px;","Portfolio Optimizer"),
-  titleWidth = 255)
+  title = tags$span(style="font-family:'Source Sans 3','Segoe UI',sans-serif;font-size:16px;font-weight:600;letter-spacing:.2px;","(α)typicalquant Portfolio Optimizer"),
+  titleWidth = 325)
 
 sidebar <- dashboardSidebar(width = 255, tags$style(HTML(APP_CSS)),
                             sidebarMenu(id="sidebar",
@@ -411,8 +411,6 @@ sidebar <- dashboardSidebar(width = 255, tags$style(HTML(APP_CSS)),
                                         menuItem("Comparison & Export",  tabName="comparison",   icon=icon("balance-scale"))))
 
 body <- dashboardBody(useShinyjs(),
-                      
-                      tags$head(tags$title("(α)typicalquant Portfolio Optimizer")),
                       
                       # Disclaimer Popup
                       
@@ -739,6 +737,8 @@ parse_pasted_table <- function(raw_text) {
 
 # ──────────────────────────────────────────────────────────────
 server <- function(input, output, session) {
+  
+  shinyjs::runjs("document.title = '(α)typicalquant Portfolio Optimizer';")
   
   # Show disclaimer on launch
   shinyjs::runjs("
