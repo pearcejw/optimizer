@@ -110,9 +110,10 @@ max_div_portfolio <- function(Sigma, vols, w_min_vec = NULL, w_max_vec = NULL,
 risk_parity_portfolio <- function(Sigma, max_iter = 2000, tol = 1e-10) {
   n <- nrow(Sigma); w <- rep(1/n, n)
   for (i in seq_len(max_iter)) {
-    sp <- sqrt(as.numeric(t(w) %*% Sigma %*% w))
-    RC <- w * (as.numeric(Sigma %*% w) / sp)
-    wn <- w / (n * RC / sp); wn <- wn / sum(wn)
+    sp <- sqrt(as.numeric(t(w) %*% Sigma %*% w)) # Calculate portfolio vol
+    RC <- w * (as.numeric(Sigma %*% w) / sp) # Calculate contribution to vol
+    # wn <- w / (n * RC / sp); wn <- wn / sum(wn) # Original risk-parity formula
+    wn <- w / RC; wn <- wn / sum(wn) # Update to fix risk-parity formula
     if (max(abs(wn - w)) < tol) { w <- wn; break }
     w <- wn
   }
@@ -410,6 +411,8 @@ sidebar <- dashboardSidebar(width = 255, tags$style(HTML(APP_CSS)),
                                         menuItem("Comparison & Export",  tabName="comparison",   icon=icon("balance-scale"))))
 
 body <- dashboardBody(useShinyjs(),
+                      
+                      tags$head(tags$title("(α)typicalquant Portfolio Optimizer")),
                       
                       # Disclaimer Popup
                       
